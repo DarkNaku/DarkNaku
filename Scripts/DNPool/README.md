@@ -1,4 +1,4 @@
-# GOPool
+# DNPool
 
 
 
@@ -14,7 +14,7 @@ GameObject를 Destroy 하지 않고 Active On/Off 해서 재활용 할 수 있�
 
 
 
-### GOPool
+### DNPool
 
 Inherits from : SingletonMonobehaviour\<T>
 
@@ -65,5 +65,5 @@ item : 확인할 대상 GameObject.
 
 관리하고 있는 모든 GameObject들을 제거하는 함수입니다.
 
-Scene을 전환 하기 직전에 반드시 호출해 주어야 메모리 누수가 발생하지 않습니다.
+Scene을 전환 하기 직전에 반드시 호출해 주어야 메모리 누수 및 참조 오류가 발생하지 않습니다.
 
