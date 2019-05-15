@@ -16,62 +16,106 @@ Resources에 있는 오디오 클립을 로드하여 플레이하고 재활용 �
 Inherits from : SingletonMonobehaviour\<T>
 
 
+
 ### 속성
 
 **public static string ResourcePath;**
+
+Resources 하위에 오디오 클립들의 경로를 지정합니다.
+
+
+
 **public static float DefaultFadeTimeOfBGM;**
+
+BGM 플레이할 때 Fade 효과 기본 시간을 지정 합니다. 초기값은 0.5초 입니다.
+
+
+
 **public static int BGMChannelCount;**
+
+BGM 체널의 갯수를 정합니다. 기본갯수는 1개이며, 최소 갯수 또한 1개입니다.
+
+
 
 ### 함수
 
 **public static void Play(string clipName);**
+
 **public static void Play(string clipName, float volume);**
+
 **public static void Play(string clipName, float volume, bool loop);**
+
 **public static void Play(string clipName, float volume, bool loop, float fadeTime);**
 
 오디오 클립을 로드하여 플레이하는 함수입니다.
 
 clipName : 경로를 제외한 클립 이름.
+
 volume : 볼륨 (0 ~ 1)
+
 loop : 반복여부.
+
 fadeTime : 값이 0보다 클경우 Fade 효과가 적용됨.
 
+
+
 **public static void PlayBGM(string clipName);**
+
 **public static void PlayBGM(string clipName, float volume);**
+
 **public static void PlayBGM(int channel, string clipName);**
+
 **public static void PlayBGM(string clipName, float volume, float fadeTime);**
+
 **public static void PlayBGM(int channel, string clipName, float volume);**
+
 **public static void PlayBGM(int channel, string clipName, float volume, float fadeTime);**
 
 Play API와 비슷하나 BGM으로 관리하며 Loop로 플레이하는 함수입니다.
 
 channel : BGM 체널 인덱스. 기본 인덱스는 0 입니다.
+
 clipName : 경로를 제외한 클립 이름.
+
 volume : 볼륨 (0 ~ 1)
+
 fadeTime : 값이 0보다 클경우 Fade 효과가 적용됨.
 
+
+
 **public static void Stop(string clipName);**
+
 **public static void Stop(string clipName, float fadeTime);**
 
 주어진 클립 이름으로 실행중인 모든 사운드를 중지합니다.
 
 clipName : 경로를 제외한 클립 이름.
+
 fadeTime : 값이 0보다 클경우 Fade 효과가 적용됨.
 
+
+
 **public static void StopBGM();**
+
 **public static void StopBGM(float fadeTime);**
+
 **public static void StopBGM(int channel, float fadeTime);**
 
 주어진 BGM 체널의 플레이를 중지합니다.
 
 channel : BGM 체널 인덱스. 기본 인덱스는 0 입니다.
+
 fadeTime : 값이 0보다 클경우 Fade 효과가 적용됨.
+
+
 
 **public static void PrevLoadClip(params string[] clipNames);**
 
 사이즈가 크거나 플레이 딜레이 발생을 줄이기 위해 오디오 클립을 미리 로드할 때 사용합니다.
 
 clipNames : 경로를 제외한 클립 목록.
+
+
 
 **public static void Clear();**
 
