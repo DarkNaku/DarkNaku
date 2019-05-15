@@ -3,6 +3,8 @@
 public interface ISceneHandler {
     void OnStartOutAnimation();
     void OnUnloadScene();
-    void OnLoadScene();
-    void OnEndInAnimation();
+    void OnLoadScene(object param);
+    void OnEndInAnimation(object param);
+    IEnumerator CoInAnimation();
+    IEnumerator CoOutAnimation();
 }

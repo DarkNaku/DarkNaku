@@ -8,86 +8,103 @@ using DarkNaku;
 
 namespace DarkNaku {
     public sealed class Director : SingletonBehaviour<Director> {
-        public static bool IsChanging { get; private set; }
-        public static float MinRetentionTime { get; set; }
-        public static string LoadingSceneName { get; set; }
+    private bool _isInTransition = false;
+    private bool _useLoadingScene = false;
+    private string _loadingSceneName = null;
+    private float _minMaintainLoadingTime = 0F;
 
-        public static void ChangeScene(string nextSceneName) {
-            ChangeScene(LoadingSceneName, nextSceneName);
+    public static bool IsInTransition { get { return Instance._isInTransition; } }
+
+    public static string LoadingSceneName { 
+        get { return Instance._loadingSceneName; }
+        set { 
+            Instance._useLoadingScene = (string.IsNullOrEmpty(value) == false);
+            Instance._loadingSceneName = value;
+        }
+    }
+
+    public static float MinMaintainLoadingTime { 
+        get { return Instance._minMaintainLoadingTime; }
+        set { Instance._minMaintainLoadingTime = Mathf.Max(0F, value); }
+    }
+
+    public static void ChangeScene(string nextSceneName) {
+        ChangeScene(nextSceneName, null);
+    }
+
+    public static void ChangeScene(string nextSceneName, object param) {
+        Assert.IsFalse(IsInTransition, 
+            "[Director] ChangeScene : This method could not call by continuous.");
+        Instance.StartCoroutine(Instance.CoChangeScene(nextSceneName, param));
+    }
+
+    private void Awake() {
+        DontDestroyOnLoad(gameObject);
+	}
+
+    private IEnumerator CoChangeScene(string nextSceneName, object param) {
+        if (_isInTransition) yield break;
+
+        _isInTransition = true;
+        AsyncOperation ao = null;
+        Scene currentScene = SceneManager.GetActiveScene();
+        EventSystem eventSystem = GetEventSystemInScene(currentScene);
+        if (eventSystem != null) eventSystem.enabled = false;
+
+        if (_useLoadingScene) {
+            ao = SceneManager.LoadSceneAsync(_loadingSceneName);
+            ao.allowSceneActivation = false;
         }
 
-        public static void ChangeScene(string loadingSceneName, string nextSceneName) {
-            Assert.IsFalse(IsChanging,
-                "[Director] ChangeScene : This method could not call by continuous.");
-            Assert.IsFalse(string.IsNullOrEmpty(LoadingSceneName),
-                "[Director] ChangeScene : 'Director.LoadingSceneName' property is null or empty.");
-            Instance.StartCoroutine(Instance.CoChangeScene(loadingSceneName, nextSceneName));
-        }
+        ISceneHandler currentSceneHandler = FindHandler<ISceneHandler>(currentScene);
+        currentSceneHandler.OnStartOutAnimation();
 
-        private void Awake() {
-            DontDestroyOnLoad(gameObject);
-        }
+        yield return StartCoroutine(currentSceneHandler.CoOutAnimation());
 
-        private IEnumerator CoChangeScene(string loadingSceneName, string nextSceneName) {
-            if (IsChanging) yield break;
+        float outTime = Time.time;
+        ILoading loader = null;
 
-            IsChanging = true;
-            if (EventSystem.current != null) EventSystem.current.enabled = false;
-            Scene currentScene = SceneManager.GetActiveScene();
-            ISceneHandler currentSceneHandler = FindHandler<ISceneHandler>(currentScene);
-            yield return SceneManager.LoadSceneAsync(loadingSceneName, LoadSceneMode.Additive);
+        if (_useLoadingScene) {
+            while (ao.progress < 0.9F) yield return null;
 
-            Scene loadingScene = SceneManager.GetSceneByName(loadingSceneName);
+            currentSceneHandler.OnUnloadScene();
+            ao.allowSceneActivation = true;
+            Scene loadingScene = SceneManager.GetSceneByName(_loadingSceneName);
+
             while (loadingScene.isLoaded == false) yield return null;
-
-            SceneManager.SetActiveScene(loadingScene);
-            ILoader loader = FindHandler<ILoader>(loadingScene);
-
-            if (currentSceneHandler != null) currentSceneHandler.OnStartOutAnimation();
-            if (loader != null) yield return StartCoroutine(loader.CoOutAnimation());
-            if (currentSceneHandler != null) currentSceneHandler.OnUnloadScene();
-
-            float startTime = Time.time;
-
-            if (loader == null) {
-                yield return SceneManager.UnloadSceneAsync(currentScene);
-                yield return SceneManager.LoadSceneAsync(nextSceneName, LoadSceneMode.Additive);
-            } else {
-                yield return StartCoroutine(CoSceneAsync(SceneManager.UnloadSceneAsync(currentScene),
-                        (progress) => { loader.OnProgress((progress / 0.9F) * 0.5F); })
-                    );
-                Resources.UnloadUnusedAssets();
-                loader.OnProgress(0.5F);
-
-                yield return StartCoroutine(CoSceneAsync(SceneManager.LoadSceneAsync(nextSceneName, LoadSceneMode.Additive),
-                        (progress) => { loader.OnProgress(0.5F + ((progress / 0.9F) * 0.5F)); })
-                    );
-                loader.OnProgress(1F);
-            }
-
-            currentScene = SceneManager.GetSceneByName(nextSceneName);
-            EventSystem eventSystem = GetEventSystemInScene(currentScene);
-            if (eventSystem != null) eventSystem.enabled = false;
-            while (currentScene.isLoaded == false) yield return null;
-            SceneManager.SetActiveScene(currentScene);
-
-            float elapsedTime = Time.time - startTime;
-
-            if (elapsedTime < MinRetentionTime) {
-                yield return new WaitForSeconds(MinRetentionTime - elapsedTime);
-            }
-
-            currentSceneHandler = FindHandler<ISceneHandler>(currentScene);
-
-            if (currentSceneHandler != null) currentSceneHandler.OnLoadScene();
-            if (loader != null) yield return StartCoroutine(loader.CoInAnimation());
-            if (currentSceneHandler != null) currentSceneHandler.OnEndInAnimation();
-
-            SceneManager.UnloadSceneAsync(loadingScene); // Need Yield ???
-            if (eventSystem != null) eventSystem.enabled = true;
-
-            IsChanging = false;
+            loader = FindHandler<ILoading>(loadingScene);
         }
+
+        ao = SceneManager.LoadSceneAsync(nextSceneName);
+        ao.allowSceneActivation = false;
+        float elapsedTime = Time.time - outTime;
+
+        if (elapsedTime < _minMaintainLoadingTime) {
+            yield return new WaitForSeconds(_minMaintainLoadingTime - elapsedTime);
+        }
+
+        while (ao.progress < 0.9F) {
+            if (loader != null) loader.OnProgress(ao.progress / 0.9F);
+            yield return null;
+        }
+        
+        if (_useLoadingScene == false) currentSceneHandler.OnUnloadScene();
+        ao.allowSceneActivation = true;
+        currentScene = SceneManager.GetSceneByName(nextSceneName);
+        eventSystem = GetEventSystemInScene(currentScene);
+        if (eventSystem != null) eventSystem.enabled = false;
+
+        while (currentScene.isLoaded == false) yield return null;
+
+        currentSceneHandler = FindHandler<ISceneHandler>(currentScene);
+        currentSceneHandler.OnLoadScene(param);
+
+        yield return StartCoroutine(currentSceneHandler.CoInAnimation());
+
+        currentSceneHandler.OnEndInAnimation(param);
+        if (eventSystem != null) eventSystem.enabled = true;
+        _isInTransition = false;
+    }
 
         private T FindHandler<T>(Scene scene) where T : class {
             GameObject[] goes = scene.GetRootGameObjects();
